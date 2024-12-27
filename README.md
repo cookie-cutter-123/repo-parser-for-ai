@@ -1,4 +1,5 @@
 ## Repo collector
 
-It takes a necessary files from a repo and puts them in a single file.
-It also appends a folder structure to the output, so AI can have all necessary info in a single file.
+It takes the files listed in input.txt from a single repository and combines them into output.txt.  
+Additionally, it appends a repo's structure to the output,
+ensuring all necessary information is consolidated into one file for the AI.
