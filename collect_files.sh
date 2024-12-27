@@ -14,6 +14,11 @@
 # Fail immediately on errors:
 set -e
 
+# Function to print debug messages
+debug() {
+  echo "DEBUG: $1" >> "$OUTPUT_FILE"
+}
+
 # Check if we have the correct number of arguments
 if [[ $# -ne 2 ]]; then
   echo "Usage: $0 <input_file> <output_file>"
@@ -23,60 +28,78 @@ fi
 INPUT_FILE="$1"
 OUTPUT_FILE="$2"
 
-# Extract the path (line starting with 'Path:')
+# 1. Extract the path (line starting with 'Path:')
 SEARCH_PATH=$(awk -F': *' '/^Path:/{print $2}' "$INPUT_FILE" | xargs)
 
-# Read the 'Files:' block, then replace commas with newlines, then trim.
+# Verify that SEARCH_PATH is not empty
+if [[ -z "$SEARCH_PATH" ]]; then
+  echo "Error: 'Path:' not found or empty in '$INPUT_FILE'."
+  exit 1
+fi
+
+echo "Searching in path: $SEARCH_PATH"
+
+# 2. Extract the lines after 'Files:' marker and split by commas/newlines
 FILES_LIST=$(
-  awk '/^Files:/{flag=1; next} flag' "$INPUT_FILE" \
-    | sed 's/,/\n/g' \
+  awk '/^Files:/{flag=1; next} /^Path:/{flag=0} flag' "$INPUT_FILE" \
+    | tr ',' '\n' \
     | xargs -L1
 )
 
-# 1) Truncate (clear) the output file at the start using a no-op command:
+# Verify that FILES_LIST is not empty
+if [[ -z "$FILES_LIST" ]]; then
+  echo "Error: No files specified after 'Files:' in '$INPUT_FILE'."
+  exit 1
+fi
+
+# Clear/overwrite the output file
 : > "$OUTPUT_FILE"
 
-# 2) Write the initial text at the top of the output file:
+# --- Add info that we are about to paste the folder structure ---
 {
-  echo "For the context, I am posting the structure of our repo, but with up to 5 files per directory, in order not to burden you with all the data right away:"
+  echo "For the context, I am posting the folder structure of our repo (tracked by Git):"
   echo ""
 } >> "$OUTPUT_FILE"
 
-# 3) Recursively list the directory structure: subfolders + up to 5 files
+# --- Use git commands with -C to ensure correct path ---
+# Check if the path is a valid directory
+if [[ ! -d "$SEARCH_PATH" ]]; then
+  echo "Error: The path '$SEARCH_PATH' does not exist or is not a directory." >> "$OUTPUT_FILE"
+  exit 1
+fi
 
-# Use find with -print0 so paths with spaces are handled safely
-while IFS= read -r -d '' dir; do
-  echo "Directory: $dir" >> "$OUTPUT_FILE"
+# Check if the directory is a Git repository
+if git -C "$SEARCH_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  REPO_TOPLEVEL=$(git -C "$SEARCH_PATH" rev-parse --show-toplevel)
+  debug "Git top-level directory is: $REPO_TOPLEVEL"
 
-  # Collect subfolders one level below, storing them in an array
-  # (We use 2>/dev/null to avoid 'Permission denied' warnings, etc.)
-  mapfile -d '' subfolders < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null || :)
-
-  for sub in "${subfolders[@]}"; do
-    # Skip printing the directory itself
-    [[ "$sub" == "$dir" ]] && continue
-    echo "  Subfolder: $sub" >> "$OUTPUT_FILE"
-  done
-
-  # Collect files (up to 5) in the current directory
-  mapfile -d '' files < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null || :)
-  # Print first 5 files
-  for (( i = 0; i < ${#files[@]} && i < 5; i++ )); do
-    echo "  File: ${files[$i]}" >> "$OUTPUT_FILE"
-  done
+  # Get the count of tracked files
+  COUNT=$(git -C "$SEARCH_PATH" ls-files | wc -l | tr -d ' ')
+  debug "Git sees $COUNT tracked file(s) here."
 
   echo "" >> "$OUTPUT_FILE"
-done < <(find "$SEARCH_PATH" -type d -print0)
 
-# 4) Write the separator text before including important files:
+  # If there are tracked files, list them
+  if [[ "$COUNT" -gt 0 ]]; then
+    git -C "$SEARCH_PATH" ls-files >> "$OUTPUT_FILE"
+  else
+    echo "No tracked files found in '$SEARCH_PATH'." >> "$OUTPUT_FILE"
+  fi
+else
+  echo "Warning: '$SEARCH_PATH' is not a Git repository." >> "$OUTPUT_FILE"
+fi
+
+# --- Add separator before appending important files ---
 {
+  echo ""
   echo "Now, I am pasting some important files from our repo:"
   echo ""
 } >> "$OUTPUT_FILE"
 
-# 5) Append the contents of the requested files
+# 3. Loop through each file in FILES_LIST, check if it exists, then append to OUTPUT_FILE
 for FILE_NAME in $FILES_LIST; do
   FILE_PATH="$SEARCH_PATH/$FILE_NAME"
+
   if [[ -f "$FILE_PATH" ]]; then
     {
       echo "---- $FILE_NAME ----"
@@ -84,8 +107,8 @@ for FILE_NAME in $FILES_LIST; do
       echo ""
     } >> "$OUTPUT_FILE"
   else
-    echo "Warning: File not found => $FILE_PATH"
+    echo "Warning: File not found => $FILE_PATH" >> "$OUTPUT_FILE"
   fi
 done
 
-echo "Done! Collected output is in '$OUTPUT_FILE'."
+echo "Done! Collected files are in '$OUTPUT_FILE'."
