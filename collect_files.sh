@@ -7,8 +7,10 @@
 #      Path: /Users/mypath/blahblah
 #      Files:
 #      openapi.yaml
-#      readme.md
-#      or separated by commas
+#      README.md
+#      main.go
+#      pkg/fclient/changelog.go
+#      (or separated by commas)
 # 2) output.txt will be created/overwritten with the contents of those files.
 
 # Fail immediately on errors:
