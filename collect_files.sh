@@ -43,26 +43,30 @@ FILES_LIST=$(
 } >> "$OUTPUT_FILE"
 
 # 3) Recursively list the directory structure: subfolders + up to 5 files
-#    This is a simple approach that may break on spaces in paths; adapt if needed.
-for dir in $(find "$SEARCH_PATH" -type d); do
+
+# Use find with -print0 so paths with spaces are handled safely
+while IFS= read -r -d '' dir; do
   echo "Directory: $dir" >> "$OUTPUT_FILE"
 
-  # Collect subfolders one level below
-  subfolders=$(find "$dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null || :)
-  for sub in $subfolders; do
+  # Collect subfolders one level below, storing them in an array
+  # (We use 2>/dev/null to avoid 'Permission denied' warnings, etc.)
+  mapfile -d '' subfolders < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null || :)
+
+  for sub in "${subfolders[@]}"; do
     # Skip printing the directory itself
     [[ "$sub" == "$dir" ]] && continue
     echo "  Subfolder: $sub" >> "$OUTPUT_FILE"
   done
 
-  # Collect up to 5 files in the current dir
-  files=$(find "$dir" -mindepth 1 -maxdepth 1 -type f 2>/dev/null | head -n 5 || :)
-  for f in $files; do
-    echo "  File: $f" >> "$OUTPUT_FILE"
+  # Collect files (up to 5) in the current directory
+  mapfile -d '' files < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null || :)
+  # Print first 5 files
+  for (( i = 0; i < ${#files[@]} && i < 5; i++ )); do
+    echo "  File: ${files[$i]}" >> "$OUTPUT_FILE"
   done
 
   echo "" >> "$OUTPUT_FILE"
-done
+done < <(find "$SEARCH_PATH" -type d -print0)
 
 # 4) Write the separator text before including important files:
 {
