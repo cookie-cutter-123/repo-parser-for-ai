@@ -74,12 +74,6 @@ fi
 # Check if the directory is a Git repository
 if git -C "$SEARCH_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   REPO_TOPLEVEL=$(git -C "$SEARCH_PATH" rev-parse --show-toplevel)
-#
-#  # Add the repository path to the output
-#  {
-#    echo "I have questions for the following repo: $REPO_TOPLEVEL"
-#    echo ""
-#  } >> "$OUTPUT_FILE"
 
   # Get the count of tracked files
   COUNT=$(git -C "$SEARCH_PATH" ls-files | wc -l | tr -d ' ')
