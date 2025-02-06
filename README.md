@@ -1,8 +1,13 @@
 ## Repo collector
 
-It takes the files listed in input.txt from a single repository and combines them into output.txt.  
-Additionally, it appends a repo's structure to the output,
-ensuring all necessary information is consolidated into one file for the AI.
+A simple Bash script designed to read a list of files from an input file, locate them in a specified path, and then concatenate their contents into a single output file.
+This is useful if you want to provide multiple files (e.g., source code, configuration files) to an AI model or any other tool that benefits from having all content in one place.
+
+### Features
+- Reads a path and a list of files from an input file. 
+- Checks if the path is a Git repository and includes the tracked file listing for context. 
+- Concatenates file contents into a single output file. 
+- Provides basic error handling for missing paths, non-existent files, and usage mistakes.
 
 ### Usage
 ```shell
