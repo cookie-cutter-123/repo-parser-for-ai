@@ -14,12 +14,15 @@ This is useful if you want to provide multiple files (e.g., source code, configu
 ./collect_files.sh input.txt output.txt 
 ```
 
+### Tip!
+You can run the script for the first time to get the paths and then use them for the input.
+
 ### Example input.txt
 ```shell
-Path: /Users/igorloncarevic/workspaces/release-flow
+Path: /Users/igorloncarevic/workspaces/mailerlite-tests/
 Files:
-openapi.yaml
-README.md
-main.go
-pkg/fclient/changelog.go
+src/test/java/net/loncarevic/utils/Constants.java
+src/test/java/net/loncarevic/utils/LocatorUtils.java
+src/test/java/net/loncarevic/utils/PopUpUtils.java
+src/test/java/net/loncarevic/TestCase0001.java
 ```
