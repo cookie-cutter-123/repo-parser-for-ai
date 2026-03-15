@@ -25,6 +25,10 @@ fi
 INPUT_FILE="$1"
 OUTPUT_FILE="$2"
 
+# File extensions and directories to exclude
+EXCLUDED_EXTENSIONS="png|jpg|jpeg|gif|bmp|svg|ico|webp|tiff|tif|pdf|mp3|mp4|avi|mov|mkv|wav|flac|zip|tar|gz|bz2|7z|rar|exe|dll|so|dylib|o|a|woff|woff2|ttf|eot|otf|class|jar|pyc|psd|ai|eps|ds_store"
+EXCLUDED_FILES="package-lock.json"
+
 # 1. Extract the path (line starting with 'Path:')
 SEARCH_PATH=$(awk -F': *' '/^Path:/{print $2}' "$INPUT_FILE" | xargs)
 
@@ -75,12 +79,16 @@ fi
 if git -C "$SEARCH_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   REPO_TOPLEVEL=$(git -C "$SEARCH_PATH" rev-parse --show-toplevel)
 
-  # Get the count of tracked files
-  COUNT=$(git -C "$SEARCH_PATH" ls-files | wc -l | tr -d ' ')
+  # Get tracked files, excluding binary/image files and unwanted directories
+  FILTERED_FILES=$(git -C "$SEARCH_PATH" ls-files \
+    | grep -v -E "(^|/)(${EXCLUDED_FILES})$" \
+    | grep -v -i -E "\.(${EXCLUDED_EXTENSIONS})$")
+
+  COUNT=$(echo "$FILTERED_FILES" | grep -c . || true)
 
   # If there are tracked files, list them
   if [[ "$COUNT" -gt 0 ]]; then
-    git -C "$SEARCH_PATH" ls-files >> "$OUTPUT_FILE"
+    echo "$FILTERED_FILES" >> "$OUTPUT_FILE"
   else
     echo "No tracked files found in '$SEARCH_PATH'." >> "$OUTPUT_FILE"
   fi
@@ -97,6 +105,18 @@ fi
 
 # 3. Loop through each file in FILES_LIST, check if it exists, then append to OUTPUT_FILE
 for FILE_NAME in $FILES_LIST; do
+  # Skip excluded files (e.g., package-lock.json)
+  if echo "$FILE_NAME" | grep -q -E "(^|/)(${EXCLUDED_FILES})$"; then
+    echo "Skipping (excluded file): $FILE_NAME"
+    continue
+  fi
+
+  # Skip files with excluded extensions
+  if echo "$FILE_NAME" | grep -q -i -E "\.(${EXCLUDED_EXTENSIONS})$"; then
+    echo "Skipping (binary/image): $FILE_NAME"
+    continue
+  fi
+
   FILE_PATH="$SEARCH_PATH/$FILE_NAME"
 
   if [[ -f "$FILE_PATH" ]]; then
